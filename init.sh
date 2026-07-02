@@ -40,15 +40,15 @@ check_python() {
 
 check_env() {
     if [ ! -f ".env" ]; then
-        if [ -f ".env.example" ]; then
-            cp .env.example .env
-            warn "已从 .env.example 创建 .env"
-            warn "请编辑 .env 填入你的 OLE 凭证后重新运行"
-            exit 0
-        else
-            error "缺少 .env 文件，请参考文档创建"
+        warn "未检测到 .env，启动配置向导..."
+        if ! $PY -m app.setup; then
+            error "配置向导未完成。手动运行：$PY -m app.setup"
             exit 1
         fi
+    fi
+    if [ ! -f ".env" ]; then
+        error "仍未生成 .env。手动运行：$PY -m app.setup"
+        exit 1
     fi
     info ".env 已就绪"
 }
@@ -77,13 +77,13 @@ check_playwright() {
     $PY -m playwright install chromium 2>&1 | grep -q "already" && info "Playwright 浏览器已就绪" || info "Chromium 安装完成"
 }
 
-# ── 5. 可选：DeepSeek API Key ────────────────────────────────
+# ── 5. LLM 配置检查 ──────────────────────────────────────────
 
-check_deepseek() {
-    if [ -f ".env" ] && grep -q '^DEEPSEEK_API_KEY=.\+' .env 2>/dev/null; then
-        info "DeepSeek API Key 已配置"
+check_llm() {
+    if [ -f ".env" ] && grep -q '^LLM_PROVIDER=.\+' .env; then
+        info "LLM 配置已就绪"
     else
-        warn "未配置 DEEPSEEK_API_KEY，意图解析将使用关键词模式"
+        warn "未配置 LLM(LLM_PROVIDER/LLM_API_KEY)，agent 推理将不可用"
     fi
 }
 
@@ -117,10 +117,10 @@ main() {
     echo "─────────────────────"
 
     check_python
-    check_env
     install_deps
     check_playwright
-    check_deepseek
+    check_env
+    check_llm
     ensure_dirs
 
     echo "─────────────────────"
