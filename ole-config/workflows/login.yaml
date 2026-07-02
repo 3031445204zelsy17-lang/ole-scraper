@@ -1,0 +1,43 @@
+# Login Workflow
+# 登录 OLE 系统
+
+name: "login"
+description: "检查 Session 并登录 OLE"
+
+steps:
+  # Step 1: 检查 Session
+  - action: check_session
+    file: "ole-session/state.json"
+    validate_url: "${urls.dashboard}"
+    on_valid: "skip_login"
+
+  # Step 2: 访问登录页
+  - action: navigate
+    url: "${urls.login}"
+
+  # Step 3: 等待表单
+  - action: wait_for
+    selector: "${selectors.login.username}"
+    timeout: 10000
+
+  # Step 4: 填写凭证
+  - action: type
+    selector: "${selectors.login.username}"
+    value: "${credentials.username}"
+
+  - action: type
+    selector: "${selectors.login.password}"
+    value: "${credentials.password}"
+
+  # Step 5: 提交
+  - action: press_key
+    key: "Enter"
+
+  # Step 6: 等待跳转
+  - action: wait_for_url
+    pattern: "**/dashboard/**"
+    timeout: 15000
+
+  # Step 7: 保存 Session
+  - action: save_session
+    file: "ole-session/state.json"

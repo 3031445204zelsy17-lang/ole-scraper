@@ -1,0 +1,16 @@
+{
+  "fetch_time": "2026-01-01T00:00:00+00:00",
+  "source": "https://ole.hkmu.edu.hk/dashboard/index.html",
+  "courses": [
+    {
+      "code": "COMP1010SEF",
+      "name": "Introduction to Computing (示例 course)",
+      "url": "https://ole.hkmu.edu.hk/course2600/comp1010sef.nsf"
+    },
+    {
+      "code": "STAT2010SEF",
+      "name": "Introduction to Statistics (示例 course)",
+      "url": "https://ole.hkmu.edu.hk/course2600/stat2010sef.nsf"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "fetch_time": "2026-01-01T00:00:00+00:00",
+  "source": "https://ole.hkmu.edu.hk/dashboard/index.html",
+  "upcoming_classes": [
+    {
+      "course": "COMP1010SEF",
+      "type": "Lecture",
+      "time": "2026-12-31T10:00:00+08:00",
+      "location": "JCC D0000 (示例)"
+    }
+  ]
+}

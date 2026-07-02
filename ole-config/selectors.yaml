@@ -1,0 +1,42 @@
+# OLE Page Selectors
+# Version: 1.0
+# Updated: 2026-03-26
+
+login:
+  username: "input[name='Username']"
+  password: "input[name='Password']"
+  # 按 Enter 提交，无需选择器
+
+dashboard:
+  # 页面就绪标识
+  ready_marker: "text=我的學科"
+
+  # 课程列表
+  courses:
+    link: "a[href*='/course2600/'][href$='.nsf']"
+
+  # 文件下载
+  files:
+    link: 'a[href*="$File"]'
+    extensions: [".pptx", ".ppt", ".pdf", ".doc", ".docx", ".zip", ".rar"]
+
+  # 作业
+  assignments:
+    section: "text=作業"
+
+  # 即将上课
+  upcoming:
+    section: "text=即將上課"
+
+course_page:
+  # AutoFramed 页面导航按钮
+  nav:
+    course_news: 'a[onclick*="gotoItem(\'3\')"]'
+    timetable: 'a[onclick*="gotoItem(\'5\')"]'
+    calendar: 'a[onclick*="gotoItem(\'6\')"]'
+    discussion: 'a[onclick*="gotoItem(\'8\')"]'
+    recordings: 'a[onclick*="gotoItem(\'9\')"]'
+    activities: 'a[onclick*="gotoItem(\'10\')"]'
+    my_progress: 'a[onclick*="gotoItem(\'11\')"]'
+    assignment_file: 'a[onclick*="gotoItem(\'15\')"]'
+    submission: 'a[onclick*="gotoItem(\'16\')"]'

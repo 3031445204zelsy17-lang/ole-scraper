@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OLE Agent</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Helvetica Neue", sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+
+/* 顶栏 */
+header { background: #16213e; padding: 14px 20px; font-size: 18px; font-weight: 600; border-bottom: 1px solid #0f3460; }
+header span { color: #53a8b6; }
+
+/* 消息区 */
+#messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; max-width: 860px; width: 100%; margin: 0 auto; }
+
+.msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.msg.user { align-self: flex-end; background: #0f3460; border-bottom-right-radius: 2px; }
+.msg.bot  { align-self: flex-start; background: #2a2a4a; border-bottom-left-radius: 2px; }
+.msg .urgent { color: #e76f51; font-weight: 600; }
+.msg .expired { color: #888; text-decoration: line-through; }
+
+.msg .meta { font-size: 11px; color: #666; margin-top: 4px; }
+
+/* thinking 消息 */
+.msg.thinking { align-self: flex-start; background: transparent; border: 1px dashed #444; color: #888; font-style: italic; font-size: 13px; padding: 8px 12px; overflow-wrap: anywhere; max-width: 85%; }
+.msg.thinking.active { border-color: #53a8b6; color: #7ec8d4; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
+
+/* 输入区 */
+#input-bar { display: flex; gap: 10px; padding: 14px 20px; background: #16213e; border-top: 1px solid #0f3460; }
+#input { flex: 1; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px; padding: 10px 14px; color: #e0e0e0; font-size: 15px; outline: none; }
+#input:focus { border-color: #53a8b6; }
+#send { background: #53a8b6; color: #1a1a2e; border: none; border-radius: 8px; padding: 10px 20px; font-size: 15px; font-weight: 600; cursor: pointer; }
+#send:hover { background: #6bc4d0; }
+#send:disabled { opacity: 0.4; cursor: default; }
+#stop { display: none; background: #c0392b; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 15px; font-weight: 600; cursor: pointer; }
+#stop:hover { background: #e74c3c; }
+#stop.visible { display: inline-block; }
+
+/* 连接状态 */
+#status { font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+#status.ok { background: #1b4332; color: #52b788; }
+#status.err { background: #3c1111; color: #e76f51; }
+
+/* 确认按钮 */
+.confirm-bar { margin-top: 8px; display: flex; gap: 8px; }
+.confirm-btn { background: #53a8b6; color: #1a1a2e; border: none; border-radius: 6px; padding: 6px 16px; cursor: pointer; font-weight: 600; }
+.confirm-btn:hover { background: #6bc4d0; }
+.cancel-btn { background: transparent; color: #888; border: 1px solid #555; border-radius: 6px; padding: 6px 16px; cursor: pointer; }
+.cancel-btn:hover { border-color: #e76f51; color: #e76f51; }
+</style>
+</head>
+<body>
+
+<header>OLE <span>Agent</span> <span id="status" class="err">disconnected</span></header>
+
+<div id="messages"></div>
+
+<div id="input-bar">
+  <input id="input" placeholder="输入消息..." autocomplete="off" />
+  <button id="stop">停止</button>
+  <button id="send">发送</button>
+</div>
+
+<script>
+const messages = document.getElementById('messages');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+const stopBtn = document.getElementById('stop');
+const status = document.getElementById('status');
+
+let ws;
+let thinkingEl = null;  // 当前 thinking 气泡元素
+let agentRunning = false;
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    status.textContent = 'connected';
+    status.className = 'ok';
+  };
+
+  ws.onclose = () => {
+    status.textContent = 'disconnected';
+    status.className = 'err';
+    setTimeout(connect, 2000);
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'thinking') {
+      // thinking 中间状态：追加到现有气泡或创建新气泡
+      agentRunning = true;
+      stopBtn.classList.add('visible');
+      sendBtn.disabled = true;
+      if (!thinkingEl) {
+        thinkingEl = document.createElement('div');
+        thinkingEl.className = 'msg thinking active';
+        messages.appendChild(thinkingEl);
+      }
+      thinkingEl.textContent += (thinkingEl.textContent ? '\n' : '') + data.text;
+      requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+      return;
+    }
+
+    if (data.type === 'final') {
+      // 最终回复：移除 thinking 气泡，显示正式回复
+      agentRunning = false;
+      stopBtn.classList.remove('visible');
+      sendBtn.disabled = false;
+      if (thinkingEl) {
+        thinkingEl.remove();
+        thinkingEl = null;
+      }
+      appendMsg('bot', data.text, data.source_url, data.confirm_id);
+      return;
+    }
+
+    // 普通消息（快速路径），清除 thinking
+    agentRunning = false;
+    stopBtn.classList.remove('visible');
+    sendBtn.disabled = false;
+    if (thinkingEl) {
+      thinkingEl.remove();
+      thinkingEl = null;
+    }
+    appendMsg('bot', data.text, data.source_url, data.confirm_id);
+  };
+}
+
+function appendMsg(role, text, sourceUrl, confirmId) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  let html = highlightUrgent(escapeHtml(text));
+  if (sourceUrl) html += `<div class="meta"><a href="${escapeHtml(sourceUrl)}" target="_blank">来源</a></div>`;
+  if (confirmId) {
+    html += `<div class="confirm-bar">
+      <button class="confirm-btn" onclick="confirmAction(this)">确认</button>
+      <button class="cancel-btn" onclick="cancelAction(this)">取消</button>
+    </div>`;
+  }
+  div.innerHTML = html;
+  messages.appendChild(div);
+  // Use requestAnimationFrame to ensure layout is complete before scrolling
+  requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+}
+
+function highlightUrgent(escaped) {
+  // Mark lines containing urgency indicators
+  return escaped.split('\n').map(line => {
+    if (line.includes('(已过期)')) return `<span class="expired">${line}</span>`;
+    if (line.includes('(今天!)') || line.includes('(还剩') && line.includes('天!)')) return `<span class="urgent">${line}</span>`;
+    return line;
+  }).join('\n');
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function send() {
+  const text = input.value.trim();
+  if (!text || ws?.readyState !== WebSocket.OPEN) return;
+  appendMsg('user', text);
+  ws.send(text);
+  input.value = '';
+}
+
+sendBtn.onclick = send;
+stopBtn.onclick = () => {
+  if (ws?.readyState === WebSocket.OPEN && agentRunning) {
+    ws.send('__STOP__');
+    agentRunning = false;
+    stopBtn.classList.remove('visible');
+    sendBtn.disabled = false;
+    if (thinkingEl) {
+      thinkingEl.remove();
+      thinkingEl = null;
+    }
+    appendMsg('bot', '已停止生成。');
+  }
+};
+input.onkeydown = (e) => { if (e.key === 'Enter') send(); };
+
+function confirmAction(btn) {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send('确认');
+    btn.parentElement.remove();
+  }
+}
+
+function cancelAction(btn) {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send('取消');
+    btn.parentElement.remove();
+  }
+}
+
+connect();
+</script>
+</body>
+</html>

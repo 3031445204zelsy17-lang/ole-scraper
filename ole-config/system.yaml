@@ -1,0 +1,27 @@
+# OLE System Configuration
+# Version: 1.0
+# Updated: 2026-03-26
+
+domains:
+  ole: "ole.hkmu.edu.hk"
+
+urls:
+  login: "https://ole.hkmu.edu.hk/"
+  dashboard: "https://ole.hkmu.edu.hk/dashboard/index.html"
+  course_base: "https://ole.hkmu.edu.hk/course2600/{code}.nsf"
+  course_autoframed: "https://ole.hkmu.edu.hk/course2600/{code}.nsf/usernavlookup/{username}?OpenDocument&AutoFramed"
+
+credentials:
+  env_file: ".env"
+  username_key: "OLE_USERNAME"
+  password_key: "OLE_PASSWORD"
+
+session:
+  path: "ole-session/state.json"
+  max_age_hours: 24
+  validate_url: "https://ole.hkmu.edu.hk/dashboard/index.html"
+
+download:
+  output_dir: "ole-downloads"
+  timeout_ms: 60000
+  max_concurrent: 3

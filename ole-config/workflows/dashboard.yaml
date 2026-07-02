@@ -1,0 +1,34 @@
+# Dashboard Workflow
+# 从 Dashboard 提取数据
+
+name: "dashboard"
+description: "从 Dashboard 提取课程、作业、上课信息"
+prerequisite: "login"
+
+steps:
+  - action: navigate
+    url: "${urls.dashboard}"
+
+  - action: wait_for
+    selector: "${selectors.dashboard.ready_marker}"
+    timeout: 10000
+
+  - action: wait
+    seconds: 3  # 等待 AJAX 加载
+
+extractors:
+  courses:
+    action: get_all_links
+    selector: "${selectors.dashboard.courses.link}"
+    pattern: '/course2600/([A-Z0-9]+[A-Z]*)\.nsf'
+    output:
+      - code: "$1"
+      - name: "${text}"
+      - url: "${href}"
+
+  files:
+    action: get_all_links
+    selector: "${selectors.dashboard.files.link}"
+    output:
+      - name: "${text}"
+      - url: "${href}"

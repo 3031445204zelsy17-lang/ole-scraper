@@ -1,0 +1,16 @@
+{
+  "fetch_time": "2026-01-01T00:00:00+00:00",
+  "source": "https://ole.hkmu.edu.hk/dashboard/index.html",
+  "assignments": [
+    {
+      "course": "COMP1010SEF",
+      "title": "Assignment 1 (示例)",
+      "deadline": "2026-12-31T23:59:00+08:00"
+    },
+    {
+      "course": "STAT2010SEF",
+      "title": "Assignment 2 (示例)",
+      "deadline": "2026-12-15T23:59:00+08:00"
+    }
+  ]
+}

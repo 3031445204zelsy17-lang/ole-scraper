@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# 环境与系统
+.env
+.DS_Store
+
+# 运行时数据(含个人/敏感信息,绝不提交)
+sessions/
+downloads/
+logs/
+ole-downloads/
+ole-session/
+ole-data/current/
+explore_ole.py

@@ -1,0 +1,19 @@
+[
+  { "id": "F01",  "desc": "FastAPI 骨架 (main.py + /health)",                                "passes": true },
+  { "id": "F02",  "desc": "聊天界面 HTML (index.html)",                                      "passes": true },
+  { "id": "F03",  "desc": "WebSocket 收发消息",                                              "passes": true },
+  { "id": "F04a", "desc": "课程检索",                                                        "passes": true },
+  { "id": "F04b", "desc": "作业检索",                                                        "passes": true },
+  { "id": "F04c", "desc": "课表检索",                                                        "passes": true },
+  { "id": "F04d", "desc": "成绩检索",                                                        "passes": true },
+  { "id": "F05",  "desc": "统一检索入口 + 格式化输出",                                        "passes": true },
+  { "id": "F06",  "desc": "下载功能 + 确认流程",                                             "passes": true },
+  { "id": "F07",  "desc": "作业按截止日期排序",                                               "passes": true },
+  { "id": "F08",  "desc": "数据缓存 (JSON + 过期检查)",                                      "passes": true },
+  { "id": "F09",  "desc": "意图解析 DeepSeek + 关键词 fallback",                             "passes": true },
+  { "id": "F10",  "desc": "init.sh 一键启动",                                                "passes": true },
+  { "id": "F11",  "desc": "错误处理友好提示",                                                "passes": true },
+  { "id": "F12",  "desc": "help 指令",                                                       "passes": true },
+  { "id": "F13",  "desc": "标红到期提醒",                                                    "passes": true },
+  { "id": "F14",  "desc": "Skill 硬编码 tool（下载/评分/材料列表）",                           "passes": false }
+]
