@@ -9,7 +9,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 
-from .config import DEEPSEEK_KEY
+from .config import LLM_CONFIG
 from .scraper_pool import ScraperPool
 from .conversation import ConversationHistory
 from .tool_executor import ToolExecutor
@@ -78,8 +78,8 @@ async def ws_chat(ws: WebSocket):
 
                 agent_cancel.clear()
 
-                if not DEEPSEEK_KEY:
-                    await ws.send_json({"text": "未配置 DEEPSEEK_API_KEY，无法处理查询。请在 .env 中设置。"})
+                if not LLM_CONFIG.is_configured:
+                    await ws.send_json({"text": f"未配置 LLM,无法处理查询。请在 .env 设置 LLM_PROVIDER + LLM_API_KEY(当前:{LLM_CONFIG.describe()})。"})
                     continue
 
                 executor = ToolExecutor(scraper_pool=scraper_pool)
@@ -87,7 +87,6 @@ async def ws_chat(ws: WebSocket):
                     user_message=text,
                     history=conversation.get_for_prompt(),
                     executor=executor,
-                    deepseek_key=DEEPSEEK_KEY,
                     on_thinking=_on_thinking,
                     cancel_event=agent_cancel,
                 )

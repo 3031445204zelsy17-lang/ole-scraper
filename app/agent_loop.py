@@ -1,15 +1,14 @@
-"""ReAct Agent 循环 — DeepSeek 推理 → 工具调用 → 观察 → 重复/回答"""
+"""ReAct Agent 循环 — LLM 推理 → 工具调用 → 观察 → 重复/回答"""
 import json
 import asyncio
 import logging
 
-import httpx
-
 from .tools import TOOL_DEFINITIONS
+from .config import LLM_CONFIG
+from .llm import call_llm
 
 log = logging.getLogger("ole-agent")
 
-DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 MAX_TURNS = 8
 
 AGENT_SYSTEM_PROMPT = """你是 OLE Agent，帮助学生查询 HKMU OLE 学习系统信息。
@@ -54,7 +53,6 @@ async def run_agent_loop(
     user_message: str,
     history: list[dict],
     executor,
-    deepseek_key: str,
     on_thinking=None,
     cancel_event: asyncio.Event | None = None,
 ) -> str:
@@ -64,7 +62,6 @@ async def run_agent_loop(
         user_message: 用户原始消息
         history: 对话历史
         executor: ToolExecutor 实例
-        deepseek_key: DeepSeek API key
         on_thinking: async callback(str) 用于向前端推送中间状态
 
     Returns:
@@ -86,22 +83,15 @@ async def run_agent_loop(
             return "已停止生成。"
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    DEEPSEEK_URL,
-                    headers={"Authorization": f"Bearer {deepseek_key}"},
-                    json={
-                        "model": "deepseek-chat",
-                        "messages": messages,
-                        "tools": TOOL_DEFINITIONS,
-                        "temperature": 0.1,
-                    },
-                )
-                resp.raise_for_status()
-                choice = resp.json()["choices"][0]
+            choice = await call_llm(
+                LLM_CONFIG,
+                messages,
+                tools=TOOL_DEFINITIONS,
+                temperature=0.1,
+            )
         except Exception as e:
-            log.error("DeepSeek API error: %s", e)
-            return f"Agent 推理失败: {e.__class__.__name__}。请稍后重试。"
+            log.error("LLM API error [%s]: %s", LLM_CONFIG.describe(), e)
+            return f"Agent 推理失败: {e.__class__.__name__}。请稍后重试,或检查 LLM 配置({LLM_CONFIG.describe()})。"
 
         assistant_msg = choice["message"]
         finish_reason = choice.get("finish_reason", "")

@@ -1,8 +1,15 @@
-"""配置入口 — 从环境变量读取凭证与 API key。
+"""配置入口 — 从环境变量读取 OLE 凭证与 LLM 配置。
 
-Phase 0:集中 DEEPSEEK_KEY(原寄生在已删除的 agent.py 意图解析模块)。
-Phase 1:扩展为多 provider 抽象(base_url / model / key 可配)。
+- OLE 凭证:OLE_USERNAME / OLE_PASSWORD(登录 HKMU OLE)
+- LLM:多 provider(见 llm.py),LLM_PROVIDER + LLM_API_KEY(+ 可选 LLM_BASE_URL/LLM_MODEL)
 """
 import os
 
-DEEPSEEK_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+from .llm import get_llm_config
+
+# OLE 登录凭证
+OLE_USERNAME = os.environ.get("OLE_USERNAME", "")
+OLE_PASSWORD = os.environ.get("OLE_PASSWORD", "")
+
+# LLM(多 provider,OpenAI 兼容)
+LLM_CONFIG = get_llm_config()
