@@ -5,7 +5,7 @@ import logging
 
 from .tools import TOOL_DEFINITIONS
 from .config import LLM_CONFIG
-from .llm import call_llm
+from .llm import call_llm_stream
 
 log = logging.getLogger("ole-agent")
 
@@ -74,6 +74,7 @@ async def run_agent_loop(
     history: list[dict],
     executor,
     on_thinking=None,
+    on_delta=None,
     cancel_event: asyncio.Event | None = None,
 ) -> str:
     """运行 ReAct 循环。
@@ -103,18 +104,16 @@ async def run_agent_loop(
             return "已停止生成。"
 
         try:
-            choice = await call_llm(
+            assistant_msg, finish_reason = await call_llm_stream(
                 LLM_CONFIG,
                 messages,
                 tools=TOOL_DEFINITIONS,
                 temperature=0.1,
+                on_delta=on_delta,
             )
         except Exception as e:
-            log.error("LLM API error [%s]: %s", LLM_CONFIG.describe(), e)
+            log.error("LLM stream error [%s]: %s", LLM_CONFIG.describe(), e)
             return f"Agent 推理失败: {e.__class__.__name__}。请稍后重试,或检查 LLM 配置({LLM_CONFIG.describe()})。"
-
-        assistant_msg = choice["message"]
-        finish_reason = choice.get("finish_reason", "")
 
         if finish_reason == "tool_calls":
             # LLM 要调用工具

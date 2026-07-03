@@ -26,6 +26,9 @@ header span { color: #53a8b6; }
 /* thinking 消息 */
 .msg.thinking { align-self: flex-start; background: transparent; border: 1px dashed #444; color: #888; font-style: italic; font-size: 13px; padding: 8px 12px; overflow-wrap: anywhere; max-width: 85%; }
 .msg.thinking.active { border-color: #53a8b6; color: #7ec8d4; animation: pulse 1.5s ease-in-out infinite; }
+
+/* 流式回答气泡(逐字渲染,带闪烁光标) */
+.msg.bot.streaming::after { content: '▋'; color: #53a8b6; margin-left: 1px; animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
 
 /* 输入区 */
@@ -73,6 +76,7 @@ const status = document.getElementById('status');
 
 let ws;
 let thinkingEl = null;  // 当前 thinking 气泡元素
+let streamingEl = null;  // 当前流式回答气泡元素
 let agentRunning = false;
 
 function connect() {
@@ -93,6 +97,18 @@ function connect() {
   ws.onmessage = (e) => {
     const data = JSON.parse(e.data);
 
+    if (data.type === 'delta') {
+      // 流式回答增量:创建/复用 streaming 气泡(bot 样式),逐字追加
+      if (!streamingEl) {
+        streamingEl = document.createElement('div');
+        streamingEl.className = 'msg bot streaming';
+        messages.appendChild(streamingEl);
+      }
+      streamingEl.textContent += data.text;
+      requestAnimationFrame(() => { messages.scrollTop = messages.scrollHeight; });
+      return;
+    }
+
     if (data.type === 'thinking') {
       // thinking 中间状态：追加到现有气泡或创建新气泡
       agentRunning = true;
@@ -109,7 +125,7 @@ function connect() {
     }
 
     if (data.type === 'final') {
-      // 最终回复：移除 thinking 气泡，显示正式回复
+      // 最终回复：移除 thinking + streaming 气泡，显示正式回复
       agentRunning = false;
       stopBtn.classList.remove('visible');
       sendBtn.disabled = false;
@@ -117,17 +133,25 @@ function connect() {
         thinkingEl.remove();
         thinkingEl = null;
       }
+      if (streamingEl) {
+        streamingEl.remove();
+        streamingEl = null;
+      }
       appendMsg('bot', data.text, data.source_url, data.confirm_id);
       return;
     }
 
-    // 普通消息（快速路径），清除 thinking
+    // 普通消息（欢迎语等），清除 thinking + streaming
     agentRunning = false;
     stopBtn.classList.remove('visible');
     sendBtn.disabled = false;
     if (thinkingEl) {
       thinkingEl.remove();
       thinkingEl = null;
+    }
+    if (streamingEl) {
+      streamingEl.remove();
+      streamingEl = null;
     }
     appendMsg('bot', data.text, data.source_url, data.confirm_id);
   };
@@ -184,6 +208,10 @@ stopBtn.onclick = () => {
     if (thinkingEl) {
       thinkingEl.remove();
       thinkingEl = null;
+    }
+    if (streamingEl) {
+      streamingEl.remove();
+      streamingEl = null;
     }
     appendMsg('bot', '已停止生成。');
   }

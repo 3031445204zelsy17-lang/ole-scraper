@@ -67,6 +67,12 @@ async def ws_chat(ws: WebSocket):
         except Exception:
             pass
 
+    async def _on_delta(text: str):
+        try:
+            await ws.send_json({"type": "delta", "text": text})
+        except Exception:
+            pass
+
     try:
         while True:
             text = await ws.receive_text()
@@ -88,6 +94,7 @@ async def ws_chat(ws: WebSocket):
                     history=conversation.get_for_prompt(),
                     executor=executor,
                     on_thinking=_on_thinking,
+                    on_delta=_on_delta,
                     cancel_event=agent_cancel,
                 )
                 conversation.add("user", text)
