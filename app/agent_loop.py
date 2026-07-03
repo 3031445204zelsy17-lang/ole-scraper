@@ -11,6 +11,26 @@ log = logging.getLogger("ole-agent")
 
 MAX_TURNS = 8
 
+
+def _validate_tool_args(fn_name: str, fn_args: dict) -> tuple[bool, str]:
+    """按 TOOL_DEFINITIONS 校验参数:required 缺失 / enum 非法。
+
+    返回 (ok, error_msg);ok=True 时 error_msg 为空。
+    取代旧的 file_type 手写补丁 —— 用通用 schema 校验 + 让 LLM 自纠正。
+    """
+    for td in TOOL_DEFINITIONS:
+        if td["function"]["name"] != fn_name:
+            continue
+        schema = td["function"].get("parameters", {})
+        for req in schema.get("required", []):
+            if not fn_args.get(req):
+                return False, f"缺少必填参数「{req}」"
+        for prop, spec in schema.get("properties", {}).items():
+            if prop in fn_args and "enum" in spec and fn_args[prop] not in spec["enum"]:
+                return False, f"参数「{prop}」={fn_args[prop]!r} 不合法,可选 {spec['enum']}"
+        return True, ""
+    return True, ""  # 未登记的工具,交由 executor 处理
+
 AGENT_SYSTEM_PROMPT = """你是 OLE Agent，帮助学生查询 HKMU OLE 学习系统信息。
 
 可用工具分三类：
@@ -115,32 +135,36 @@ async def run_agent_loop(
                 if on_thinking:
                     await on_thinking(f"[调用] {fn_name}({fn_args_str})")
 
+                # 1. 参数 JSON 解析:失败不静默,反馈给 LLM 让它重新生成
                 try:
                     fn_args = json.loads(fn_args_str)
-                except json.JSONDecodeError:
-                    fn_args = {}
+                except json.JSONDecodeError as e:
+                    log.warning("工具参数 JSON 解析失败 [%s]: %s", fn_name, e)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": f"arguments 不是合法 JSON({e})。请重新调用 {fn_name} 并输出合法 JSON。",
+                    })
+                    continue
 
-                # 修正 DeepSeek 遗漏/错误的 file_type 参数
-                if fn_name == "download_course_files":
-                    msg_lower = user_message.lower()
-                    desired = None
-                    if any(k in msg_lower for k in ("tutorial", "tut", "辅导")):
-                        desired = "tutorial"
-                    elif any(k in msg_lower for k in ("lecture", "lect", "课件", "讲义")):
-                        desired = "lecture"
-                    if desired:
-                        current = fn_args.get("file_type", "all")
-                        if current == "all":
-                            log.info("修正 file_type: %s → %s", current, desired)
-                            fn_args["file_type"] = desired
+                # 2. 参数 schema 校验:缺必填 / enum 非法 → 反馈纠正(取代旧 file_type 手写补丁)
+                ok, err = _validate_tool_args(fn_name, fn_args)
+                if not ok:
+                    log.warning("工具参数校验失败 [%s]: %s", fn_name, err)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": f"参数错误:{err}。请修正后重新调用 {fn_name}。",
+                    })
+                    continue
 
+                # 3. 执行
                 result = await executor.execute(fn_name, fn_args)
 
                 if on_thinking:
                     preview = result[:150] + "..." if len(result) > 150 else result
                     await on_thinking(f"[结果] {preview}")
 
-                # 按格式追加 tool result
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc["id"],

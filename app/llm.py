@@ -6,6 +6,7 @@
 预设 provider 的 base_url/model 只是默认值,均可被环境变量覆盖。
 """
 import os
+import asyncio
 import logging
 
 import httpx
@@ -65,23 +66,23 @@ def get_llm_config() -> LLMConfig:
     return LLMConfig()
 
 
+_RETRYABLE_STATUS = {408, 409, 425, 429, 500, 502, 503, 504}
+
+
 async def call_llm(
     config: LLMConfig,
     messages: list[dict],
     tools: list[dict] | None = None,
     temperature: float = 0.1,
     timeout: float = 30,
+    max_retries: int = 3,
 ) -> dict:
     """调用 OpenAI 兼容 Chat Completions,返回 choices[0](含 message + finish_reason)。
 
-    Raises:
-        向上抛 httpx 请求异常 / HTTPStatusError,由调用方处理。
+    可重试错误(连接 / 超时 / 429 / 5xx)指数退避重试 max_retries 次;
+    不可重试(如 401 鉴权失败、其他 4xx)直接向上抛。
     """
-    payload = {
-        "model": config.model,
-        "messages": messages,
-        "temperature": temperature,
-    }
+    payload = {"model": config.model, "messages": messages, "temperature": temperature}
     if tools:
         payload["tools"] = tools
 
@@ -91,7 +92,27 @@ async def call_llm(
         headers = {}
 
     log.info("LLM call → %s", config.describe())
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.post(config.endpoint, headers=headers, json=payload)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]
+    last_exc: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(config.endpoint, headers=headers, json=payload)
+                resp.raise_for_status()
+                return resp.json()["choices"][0]
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in _RETRYABLE_STATUS and attempt < max_retries:
+                wait = 2 ** attempt
+                log.warning("LLM HTTP %d,%.1fs 后重试(%d/%d)", e.response.status_code, wait, attempt + 1, max_retries)
+                await asyncio.sleep(wait)
+                last_exc = e
+                continue
+            raise
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            if attempt < max_retries:
+                wait = 2 ** attempt
+                log.warning("LLM 网络错误 %s,%.1fs 后重试(%d/%d)", type(e).__name__, wait, attempt + 1, max_retries)
+                await asyncio.sleep(wait)
+                last_exc = e
+                continue
+            raise
+    raise last_exc  # type: ignore[misc]
