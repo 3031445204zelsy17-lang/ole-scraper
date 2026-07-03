@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import logging
 from pathlib import Path
@@ -80,6 +81,14 @@ async def ws_chat(ws: WebSocket):
             try:
                 if text == "__STOP__":
                     agent_cancel.set()
+                    continue
+
+                if text.startswith("__RESTORE__"):
+                    try:
+                        conversation.load(json.loads(text[len("__RESTORE__"):]))
+                        log.info("Restored conversation history: %d msgs", len(conversation.get_for_prompt()))
+                    except Exception as e:
+                        log.warning("Restore history failed: %s", e)
                     continue
 
                 agent_cancel.clear()

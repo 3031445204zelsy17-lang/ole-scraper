@@ -79,6 +79,20 @@ let thinkingEl = null;  // 当前 thinking 气泡元素
 let streamingEl = null;  // 当前流式回答气泡元素
 let agentRunning = false;
 
+const HISTORY_KEY = 'ole_history';
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function saveHistory(h) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); } catch {}
+}
+function recordMsg(role, text, sourceUrl, confirmId) {
+  const h = loadHistory();
+  h.push({ role, text, source_url: sourceUrl, confirm_id: confirmId });
+  saveHistory(h);
+}
+
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws`);
@@ -86,6 +100,12 @@ function connect() {
   ws.onopen = () => {
     status.textContent = 'connected';
     status.className = 'ok';
+    // 恢复历史上下文给后端(让 agent 记得之前的对话)
+    const h = loadHistory();
+    if (h.length) {
+      const llm = h.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+      ws.send('__RESTORE__' + JSON.stringify(llm));
+    }
   };
 
   ws.onclose = () => {
@@ -138,6 +158,7 @@ function connect() {
         streamingEl = null;
       }
       appendMsg('bot', data.text, data.source_url, data.confirm_id);
+      recordMsg('bot', data.text, data.source_url, data.confirm_id);
       return;
     }
 
@@ -194,6 +215,7 @@ function send() {
   const text = input.value.trim();
   if (!text || ws?.readyState !== WebSocket.OPEN) return;
   appendMsg('user', text);
+  recordMsg('user', text);
   ws.send(text);
   input.value = '';
 }
@@ -232,6 +254,10 @@ function cancelAction(btn) {
   }
 }
 
+// 渲染 localStorage 历史(刷新不丢)
+for (const m of loadHistory()) {
+  appendMsg(m.role, m.text, m.source_url, m.confirm_id);
+}
 connect();
 </script>
 </body>
