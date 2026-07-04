@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
 
 from .config import LLM_CONFIG
 from .scraper_pool import ScraperPool
@@ -18,24 +16,14 @@ from .agent_loop import run_agent_loop
 
 log = logging.getLogger("ole-agent")
 
-app = FastAPI(title="OLE Agent")
+PROJECT_ROOT = Path(__file__).parent.parent
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app = FastAPI(title="OLE Agent")
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
-
-
-@app.get("/")
-async def index():
-    return FileResponse("app/static/index.html")
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    return Response(status_code=204)
 
 
 # ── 帮助文本 ──────────────────────────────────────────────
@@ -118,3 +106,13 @@ async def ws_chat(ws: WebSocket):
         pass
     finally:
         await scraper_pool.close()
+
+
+# ── 前端 SPA ───────────────────────────────────────────────
+# 生产:托管 frontend/dist(npm run build 产物)。
+# dev:vite dev (5173) + vite.config proxy /ws → 这里 (8000),无需 dist。
+# 必须在所有 API/WS 路由之后注册:app.frontend() 是 catch-all。
+
+_FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.frontend("/", directory=str(_FRONTEND_DIST))
