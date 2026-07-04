@@ -50,11 +50,18 @@ LLM_API_KEY=你的 LLM API key
 
 ### 3. 启动
 
-```bash
-python -m uvicorn app.main:app
-```
+一键(推荐,含前端构建 + 起):
 
-浏览器打开 `http://localhost:8000` 即可开始聊天。首次使用时 scraper 会登录 OLE 并持久化 session(`sessions/`),之后免重复登录。
+    ./init.sh
+
+或手动:
+
+    cd frontend && npm install && npm run build && cd ..
+    python -m uvicorn app.main:app
+
+浏览器打开 `http://localhost:8000`(后端托管 `frontend/dist`)。首次使用时 scraper 会登录 OLE 并持久化 session(`sessions/`),之后免重复登录。
+
+> 前端开发(热更新):`cd frontend && npm run dev`(5173,proxy `/ws` → 8000),另起 `python -m uvicorn app.main:app`。
 
 **课件内容问答(RAG)**:若要让 agent 回答「课件里怎么说」类问题,先建索引(扫描 `downloads/` 下 PDF,首次下 bge 模型 ~100MB):
 

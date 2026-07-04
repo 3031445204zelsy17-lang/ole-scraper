@@ -94,7 +94,20 @@ ensure_dirs() {
     info "数据目录已就绪"
 }
 
-# ── 7. 启动服务器 ────────────────────────────────────────────
+# ── 7. 前端构建 ──────────────────────────────────────────────
+
+build_frontend() {
+    if [ ! -d "frontend/node_modules" ]; then
+        info "安装前端依赖(npm install)..."
+        (cd frontend && npm install)
+    else
+        info "前端依赖已就绪"
+    fi
+    info "构建前端(npm run build → frontend/dist/)..."
+    (cd frontend && npm run build)
+}
+
+# ── 8. 启动服务器 ────────────────────────────────────────────
 
 start_server() {
     echo ""
@@ -122,6 +135,7 @@ main() {
     check_env
     check_llm
     ensure_dirs
+    build_frontend
 
     echo "─────────────────────"
     start_server
