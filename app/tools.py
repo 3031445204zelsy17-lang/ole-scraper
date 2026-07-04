@@ -189,4 +189,25 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_course_content",
+            "description": "从已下载的课程讲义/课件 PDF 中检索内容,回答「课件/讲义里怎么说」类问题:考核占比、评分标准、某 unit/某周讲什么、某概念定义。返回相关片段 + 来源(PDF 文件名 + 页码)。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "检索问题或关键词,如「考核占比」「抽样分布的定义」",
+                    },
+                    "course_code": {
+                        "type": "string",
+                        "description": "可选,课程代码(当前为全索引检索,留作后续按课程过滤)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]

@@ -114,6 +114,38 @@ def load_index(index_dir: Path = INDEX_DIR):
     return emb, chunks
 
 
+_model = None
+
+
+def get_model():
+    """懒加载 bge 模型(首次调用加载 ~2s,后续复用)。"""
+    global _model
+    if _model is None:
+        _model = SentenceTransformer(MODEL_NAME, device="cpu")
+    return _model
+
+
+def retrieve(query: str, top_k: int = 5) -> list[dict]:
+    """检索索引,返回 top_k 最相关 chunks(含来源 pdf/page + score)。索引未建返回 []。"""
+    data = load_index()
+    if not data:
+        return []
+    emb, chunks = data
+    if len(chunks) == 0:
+        return []
+    model = get_model()
+    q = model.encode([query], normalize_embeddings=True, convert_to_numpy=True)[0].astype(np.float32)
+    sims = emb @ q
+    k = min(top_k, len(sims))
+    top = np.argpartition(-sims, k - 1)[:k]
+    top = top[np.argsort(-sims[top])]
+    return [
+        {"pdf": chunks[i]["pdf"], "page": chunks[i]["page"],
+         "text": chunks[i]["text"], "score": round(float(sims[i]), 4)}
+        for i in top
+    ]
+
+
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "build":
         pdf_dir = sys.argv[2] if len(sys.argv) >= 3 else str(DEFAULT_PDF_DIR)

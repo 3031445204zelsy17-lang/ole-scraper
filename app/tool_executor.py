@@ -22,6 +22,7 @@ class ToolExecutor:
             "download_course_files": self._download_course_files,
             "get_course_materials": self._get_course_materials,
             "search_course_info": self._search_course_info,
+            "retrieve_course_content": self._retrieve_course_content,
         }
 
     async def execute(self, tool_name: str, arguments: dict) -> str:
@@ -277,3 +278,15 @@ class ToolExecutor:
         except Exception as e:
             log.error("search_course_info failed: %s", e, exc_info=True)
             return {"error": f"搜索课程信息失败: {e}"}
+
+    async def _retrieve_course_content(
+        self, query: str, course_code: str = None
+    ) -> dict:
+        """从课程讲义/课件 PDF 检索内容(RAG,回答课件类问题)"""
+        from .rag_index import retrieve
+
+        results = retrieve(query, top_k=5)
+        if not results:
+            return {"query": query, "results": [], "total": 0,
+                    "hint": "RAG 索引未建或为空。先运行:python3 -m app.rag_index build"}
+        return {"query": query, "results": results, "total": len(results)}
