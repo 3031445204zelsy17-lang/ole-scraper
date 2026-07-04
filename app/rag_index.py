@@ -146,15 +146,35 @@ def retrieve(query: str, top_k: int = 5) -> list[dict]:
     ]
 
 
+def index_status(index_dir: Path = INDEX_DIR) -> dict:
+    """返回索引状态(是否已建、chunks 数、来源 PDF、emb shape)。"""
+    index_dir = Path(index_dir)
+    emb_path = index_dir / "embeddings.npy"
+    chunks_path = index_dir / "chunks.json"
+    if not emb_path.exists() or not chunks_path.exists():
+        return {"built": False, "message": "索引未建。运行:python3 -m app.rag_index build"}
+    emb = np.load(emb_path)
+    with open(chunks_path, encoding="utf-8") as f:
+        chunks = json.load(f)
+    pdfs = sorted({c["pdf"] for c in chunks})
+    return {"built": True, "chunks": len(chunks), "emb_shape": list(emb.shape),
+            "pdf_count": len(pdfs), "pdfs": pdfs}
+
+
 def main():
-    if len(sys.argv) >= 2 and sys.argv[1] == "build":
-        pdf_dir = sys.argv[2] if len(sys.argv) >= 3 else str(DEFAULT_PDF_DIR)
-        result = build_index(Path(pdf_dir))
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-    else:
-        print("用法:python3 -m app.rag_index build [pdf_dir]")
-        print(f"  默认扫描 {DEFAULT_PDF_DIR}")
+    args = sys.argv[1:]
+    if not args or args[0] not in ("build", "status"):
+        print("用法:")
+        print("  python3 -m app.rag_index build [pdf_dir]  建索引(默认扫描 downloads/)")
+        print("  python3 -m app.rag_index status           查看索引状态")
+        if not args:
+            sys.exit(1)
         sys.exit(1)
+    if args[0] == "build":
+        pdf_dir = args[1] if len(args) >= 2 else str(DEFAULT_PDF_DIR)
+        print(json.dumps(build_index(Path(pdf_dir)), ensure_ascii=False, indent=2))
+    elif args[0] == "status":
+        print(json.dumps(index_status(), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
