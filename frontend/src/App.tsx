@@ -5,6 +5,22 @@ import rehypeHighlight from 'rehype-highlight'
 import { useStore, ensureSession } from './store'
 import { useChatWS } from './useChatWS'
 
+const Md = ({ children }: { children: string }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    rehypePlugins={[rehypeHighlight]}
+    components={{
+      a: ({ href, children }) => (
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      ),
+    }}
+  >
+    {children}
+  </ReactMarkdown>
+)
+
 function App() {
   const [input, setInput] = useState('')
   const sessions = useStore((s) => s.sessions)
@@ -87,7 +103,7 @@ function App() {
                 </div>
               ) : (
                 <div key={i} className="prose-chat">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{m.text}</ReactMarkdown>
+                  <Md>{m.text}</Md>
                 </div>
               ),
             )}
@@ -100,7 +116,7 @@ function App() {
 
             {streaming && (
               <div className="prose-chat">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>{streaming}</ReactMarkdown>
+                <Md>{streaming}</Md>
                 <span className="inline-block w-2 h-4 bg-[#d97757] animate-pulse align-middle ml-0.5" />
               </div>
             )}

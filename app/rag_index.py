@@ -12,6 +12,7 @@ import os
 import json
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 # 模型缓存到项目目录(尊重已设的 HF_HOME)
 os.environ.setdefault("HF_HOME", str(Path(__file__).parent.parent / ".hf_cache"))
@@ -140,8 +141,14 @@ def retrieve(query: str, top_k: int = 5) -> list[dict]:
     top = np.argpartition(-sims, k - 1)[:k]
     top = top[np.argsort(-sims[top])]
     return [
-        {"pdf": chunks[i]["pdf"], "page": chunks[i]["page"],
-         "text": chunks[i]["text"], "score": round(float(sims[i]), 4)}
+        {
+            "pdf": chunks[i]["pdf"],
+            "page": chunks[i]["page"],
+            "text": chunks[i]["text"],
+            "score": round(float(sims[i]), 4),
+            "source_url": f"/source?pdf={quote(chunks[i]['pdf'])}&page={chunks[i]['page']}",
+            "source": f"[📄 {chunks[i]['pdf']} p{chunks[i]['page']}](/source?pdf={quote(chunks[i]['pdf'])}&page={chunks[i]['page']})",
+        }
         for i in top
     ]
 

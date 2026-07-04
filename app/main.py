@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, Response
 
 from .config import LLM_CONFIG
 from .scraper_pool import ScraperPool
@@ -24,6 +25,15 @@ app = FastAPI(title="OLE Agent")
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/source")
+async def source(pdf: str, page: int = 1):
+    """RAG 来源:打开 downloads/ 下的课件 PDF(前端「来源」链接点击)。"""
+    for p in (PROJECT_ROOT / "downloads").rglob("*.pdf"):
+        if p.name == pdf:
+            return FileResponse(p, media_type="application/pdf")
+    return Response(status_code=404)
 
 
 # ── 帮助文本 ──────────────────────────────────────────────
