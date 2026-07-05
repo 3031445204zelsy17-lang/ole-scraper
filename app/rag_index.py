@@ -126,9 +126,10 @@ def get_model():
     return _model
 
 
-def retrieve(query: str, top_k: int = 5) -> list[dict]:
-    """检索索引,返回 top_k 最相关 chunks(含来源 pdf/page + score)。索引未建返回 []。"""
-    data = load_index()
+def _search_index(index_dir: Path, query: str, top_k: int = 5) -> list[dict]:
+    """共享检索:返回 top_k 原始命中 [{**chunk, score}],不含来源格式化。
+    索引未建/为空返回 []。供 retrieve()(PDF)与 public_rag.retrieve_public()(HTML)复用。"""
+    data = load_index(index_dir)
     if not data:
         return []
     emb, chunks = data
@@ -140,16 +141,23 @@ def retrieve(query: str, top_k: int = 5) -> list[dict]:
     k = min(top_k, len(sims))
     top = np.argpartition(-sims, k - 1)[:k]
     top = top[np.argsort(-sims[top])]
+    return [{**chunks[i], "score": round(float(sims[i]), 4)} for i in top]
+
+
+def retrieve(query: str, top_k: int = 5, index_dir: Path = INDEX_DIR) -> list[dict]:
+    """检索 PDF 课件索引,返回 top_k 最相关 chunks(含来源 pdf/page + score)。
+    索引未建返回 []。"""
+    hits = _search_index(index_dir, query, top_k)
     return [
         {
-            "pdf": chunks[i]["pdf"],
-            "page": chunks[i]["page"],
-            "text": chunks[i]["text"],
-            "score": round(float(sims[i]), 4),
-            "source_url": f"/source?pdf={quote(chunks[i]['pdf'])}&page={chunks[i]['page']}",
-            "source": f"[📄 {chunks[i]['pdf']} p{chunks[i]['page']}](/source?pdf={quote(chunks[i]['pdf'])}&page={chunks[i]['page']})",
+            "pdf": h["pdf"],
+            "page": h["page"],
+            "text": h["text"],
+            "score": h["score"],
+            "source_url": f"/source?pdf={quote(h['pdf'])}&page={h['page']}",
+            "source": f"[📄 {h['pdf']} p{h['page']}](/source?pdf={quote(h['pdf'])}&page={h['page']})",
         }
-        for i in top
+        for h in hits
     ]
 
 
