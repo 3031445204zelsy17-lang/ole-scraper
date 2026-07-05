@@ -84,7 +84,7 @@ def build_index(pdf_dir: Path = DEFAULT_PDF_DIR, out_dir: Path = INDEX_DIR) -> d
                 "message": "未抽到文本(可能全是扫描 PDF,需 OCR)"}
 
     print(f"嵌入 {len(all_chunks)} 个块(CPU,首次加载模型 ~2s)...", flush=True)
-    model = SentenceTransformer(MODEL_NAME, device="cpu")
+    model = get_model(MODEL_NAME)
     emb = model.encode(
         [c["text"] for c in all_chunks],
         normalize_embeddings=True,
@@ -97,6 +97,7 @@ def build_index(pdf_dir: Path = DEFAULT_PDF_DIR, out_dir: Path = INDEX_DIR) -> d
     np.save(Path(out_dir) / "embeddings.npy", emb)
     with open(Path(out_dir) / "chunks.json", "w", encoding="utf-8") as f:
         json.dump([{"id": i, **c} for i, c in enumerate(all_chunks)], f, ensure_ascii=False, indent=2)
+    _write_meta(out_dir, MODEL_NAME)
 
     return {"pdfs": len(pdfs) - len(skipped), "chunks": len(all_chunks),
             "emb_shape": list(emb.shape), "skipped": skipped, "out_dir": str(out_dir)}
@@ -115,15 +116,32 @@ def load_index(index_dir: Path = INDEX_DIR):
     return emb, chunks
 
 
-_model = None
+_models: dict[str, SentenceTransformer] = {}
 
 
-def get_model():
-    """懒加载 bge 模型(首次调用加载 ~2s,后续复用)。"""
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(MODEL_NAME, device="cpu")
-    return _model
+def get_model(model_name: str = MODEL_NAME) -> SentenceTransformer:
+    """懒加载嵌入模型,按 model_name 缓存(多模型并存,如 zh 课件 + en 官网)。"""
+    if model_name not in _models:
+        print(f"加载模型 {model_name}...", flush=True)
+        _models[model_name] = SentenceTransformer(model_name, device="cpu")
+    return _models[model_name]
+
+
+def _write_meta(index_dir, model_name: str) -> None:
+    """记录索引用的嵌入模型(检索时按此加载,保证 query 与索引同模型)。"""
+    with open(Path(index_dir) / "meta.json", "w", encoding="utf-8") as f:
+        json.dump({"model": model_name}, f, ensure_ascii=False)
+
+
+def _read_meta_model(index_dir, default: str = MODEL_NAME) -> str:
+    """读索引的嵌入模型名;无 meta(旧索引)按 default。"""
+    p = Path(index_dir) / "meta.json"
+    if p.exists():
+        try:
+            return json.load(open(p, encoding="utf-8")).get("model", default)
+        except (json.JSONDecodeError, OSError):
+            return default
+    return default
 
 
 def _search_index(index_dir: Path, query: str, top_k: int = 5) -> list[dict]:
@@ -135,7 +153,7 @@ def _search_index(index_dir: Path, query: str, top_k: int = 5) -> list[dict]:
     emb, chunks = data
     if len(chunks) == 0:
         return []
-    model = get_model()
+    model = get_model(_read_meta_model(index_dir))  # 按索引 meta 加载对应模型
     q = model.encode([query], normalize_embeddings=True, convert_to_numpy=True)[0].astype(np.float32)
     sims = emb @ q
     k = min(top_k, len(sims))

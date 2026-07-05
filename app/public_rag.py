@@ -21,8 +21,9 @@ from pathlib import Path
 import numpy as np
 
 from .public_crawler import PUBLIC_DIR as INDEX_DIR, load_manifest
-from .rag_index import CHUNK_CHARS, OVERLAP_CHARS, _search_index, get_model
+from .rag_index import CHUNK_CHARS, OVERLAP_CHARS, _search_index, _write_meta, get_model
 
+PUBLIC_MODEL_NAME = "BAAI/bge-small-en-v1.5"  # 官网为英文内容,用 en 模型(课件 PDF 仍用 zh)
 MIN_TEXT_LEN = 40  # 与 public_crawler 一致,过短的页跳过
 
 
@@ -59,7 +60,7 @@ def build_public_index() -> dict:
         return {"built": False, "pages": len(manifest), "skipped": skipped, "message": "无有效文本"}
 
     print(f"嵌入 {len(chunks)} 个块(来自 {len(manifest) - skipped} 页,CPU)...", flush=True)
-    model = get_model()
+    model = get_model(PUBLIC_MODEL_NAME)
     emb = model.encode(
         [c["text"] for c in chunks],
         normalize_embeddings=True,
@@ -72,6 +73,7 @@ def build_public_index() -> dict:
     np.save(INDEX_DIR / "embeddings.npy", emb)
     with open(INDEX_DIR / "chunks.json", "w", encoding="utf-8") as f:
         json.dump([{"id": i, **c} for i, c in enumerate(chunks)], f, ensure_ascii=False, indent=2)
+    _write_meta(INDEX_DIR, PUBLIC_MODEL_NAME)  # 检索时按此加载 en 模型
 
     return {
         "built": True,
