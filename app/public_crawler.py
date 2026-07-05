@@ -62,11 +62,12 @@ SEED_URLS = [
 ]
 
 USER_AGENT = "OLE-Agent/0.1 (personal local use; HKMU student reference RAG)"
-REQUEST_DELAY = 0.5   # 礼貌限速:每个页面请求间隔(秒)
+REQUEST_DELAY = 0.5   # sitemap 发现时的请求间隔(秒)
 TIMEOUT = 20.0
 RETRY_STATUS = {429, 500, 502, 503, 504}
 MIN_TEXT_LEN = 40     # 短于此大概率是导航/占位页,丢弃
 MAX_PER_SUBSITE = 400  # 每子站上限(news 等高量子站会被截,见日志)
+CONCURRENCY = 5       # 页面抓取并发(网络等待重叠;峰值 ~2 req/s,礼貌不破)
 
 
 # ── URL 分类 / 过滤 ─────────────────────────────────────────
@@ -321,25 +322,21 @@ async def crawl(force: bool = False) -> dict:
         urls = await discover_urls(client)
         print(f"[发现] {len(urls)} 个候选 URL(含种子);已缓存 {len(done)}", flush=True)
 
-        new_ok = skipped = failed = 0
-        for i, url in enumerate(urls, 1):
-            if url in done:
-                skipped += 1
-                continue
-            await asyncio.sleep(REQUEST_DELAY)
+        todo = [u for u in urls if u not in done]
+        cached = len(urls) - len(todo)
+
+        async def worker(url):
+            """抓取 + 抽取 + 落盘,返回 (kind, status, entry_or_None)。"""
             status, html = await _fetch(client, url)
             if status != 200 or not html:
-                failed += 1
-                print(f"  [{i}/{len(urls)}] ✗ {status} {url}", flush=True)
-                continue
+                return ("fail", status, None)
             title, text = _extract(html)
             if not text:
-                skipped += 1
-                continue
+                return ("skip", status, None)
             key = _url_key(url)
             (HTML_DIR / f"{key}.html").write_text(html, encoding="utf-8")
             (HTML_DIR / f"{key}.txt").write_text(text, encoding="utf-8")
-            manifest.append({
+            return ("ok", status, {
                 "url": url,
                 "title": title,
                 "subsite": _subsite_of(url),
@@ -347,17 +344,31 @@ async def crawl(force: bool = False) -> dict:
                 "txt_path": f"html/{key}.txt",
                 "fetched_at": _now_iso(),
             })
-            new_ok += 1
-            if new_ok % 20 == 0:
-                _save_manifest(manifest)  # 周期落盘,防中断丢失
-            label = (title or url)[:70]
-            print(f"  [{i}/{len(urls)}] ✓ {label}", flush=True)
+
+        new_ok = skip_new = failed = 0
+        n = len(todo)
+        for start in range(0, n, CONCURRENCY):
+            batch = todo[start:start + CONCURRENCY]
+            results = await asyncio.gather(*[worker(u) for u in batch])
+            for kind, _status, entry in results:
+                if kind == "ok":
+                    manifest.append(entry)
+                    new_ok += 1
+                elif kind == "skip":
+                    skip_new += 1
+                else:
+                    failed += 1
+            if start % 30 == 0:  # 每 ~30 页落盘,防中断丢失
+                _save_manifest(manifest)
+            ok_now = sum(1 for r in results if r[0] == "ok")
+            print(f"  [{start + len(batch)}/{n}] +{ok_now} ok "
+                  f"(累计缓存 {len(manifest)})", flush=True)
 
     _save_manifest(manifest)
     return {
         "candidates": len(urls),
         "new": new_ok,
-        "skipped": skipped,
+        "skipped": cached + skip_new,
         "failed": failed,
         "total_cached": len(manifest),
     }
