@@ -18,6 +18,7 @@ explore_ole.py
 # RAG(Phase 3:模型缓存 + 索引产物,均可重建)
 .hf_cache/
 ole-data/rag/
+ole-data/public/
 
 # 前端(Phase 3.5:依赖 + build 产物,均可重建)
 frontend/node_modules/

@@ -8,3 +8,7 @@ pydantic>=2.0.0
 sentence-transformers>=2.7
 pymupdf>=1.28
 pymupdf4llm>=0.0.17
+
+# 官网公开信息 RAG(Phase 3.6)
+httpx>=0.27
+trafilatura>=1.12

@@ -90,7 +90,7 @@ check_llm() {
 # ── 6. 创建必要目录 ──────────────────────────────────────────
 
 ensure_dirs() {
-    mkdir -p ole-data/current ole-downloads ole-session
+    mkdir -p ole-data/current ole-downloads ole-session ole-data/public
     info "数据目录已就绪"
 }
 
