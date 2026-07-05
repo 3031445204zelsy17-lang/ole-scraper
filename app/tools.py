@@ -210,4 +210,25 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "retrieve_public_info",
+            "description": "从 HKMU 官网(www.hkmu.edu.hk)公开页面检索内容,回答 OLE 与课件都覆盖不到的公开信息:招生政策、专业介绍、学费、奖学金、新闻、校历、图书馆服务等。返回相关片段 + 来源链接(可点击打开官网原文)。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "检索问题或关键词,如「SSSDP」「本科专业」「学费」「图书馆开放时间」「校历」",
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "可选,留作后续按子站/类别过滤(当前全索引检索)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]

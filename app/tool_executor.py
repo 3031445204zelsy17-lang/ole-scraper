@@ -23,6 +23,7 @@ class ToolExecutor:
             "get_course_materials": self._get_course_materials,
             "search_course_info": self._search_course_info,
             "retrieve_course_content": self._retrieve_course_content,
+            "retrieve_public_info": self._retrieve_public_info,
         }
 
     async def execute(self, tool_name: str, arguments: dict) -> str:
@@ -289,4 +290,16 @@ class ToolExecutor:
         if not results:
             return {"query": query, "results": [], "total": 0,
                     "hint": "RAG 索引未建或为空。先运行:python3 -m app.rag_index build"}
+        return {"query": query, "results": results, "total": len(results)}
+
+    async def _retrieve_public_info(
+        self, query: str, category: str = None
+    ) -> dict:
+        """从 HKMU 官网公开页面检索信息(RAG,回答 OLE/课件覆盖不到的公开信息)"""
+        from .public_rag import retrieve_public
+
+        results = retrieve_public(query, top_k=5)
+        if not results:
+            return {"query": query, "results": [], "total": 0,
+                    "hint": "官网索引未建或为空。先运行:python -m app.public_rag crawl && python -m app.public_rag build"}
         return {"query": query, "results": results, "total": len(results)}
